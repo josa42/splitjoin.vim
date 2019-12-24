@@ -125,6 +125,50 @@ describe "yaml" do
               foo: bar
       EOF
     end
+
+    specify "list of simple objects" do
+      set_file_contents <<~EOF
+        list: [{ prop: 1 }, { prop: 2 }]
+      EOF
+
+      vim.search 'list'
+      split
+
+      assert_file_contents <<~EOF
+        list:
+          - prop: 1
+          - prop: 2
+      EOF
+
+      vim.search 'list'
+      join
+
+      assert_file_contents <<~EOF
+        list: [{ prop: 1 }, { prop: 2 }]
+      EOF
+    end
+
+    specify "list of arrays" do
+      set_file_contents <<~EOF
+        list: [[1, 2], [3, 4]]
+      EOF
+
+      vim.search 'list'
+      split
+
+      assert_file_contents <<~EOF
+        list:
+          - [1, 2]
+          - [3, 4]
+      EOF
+
+      vim.search 'list'
+      join
+
+      assert_file_contents <<~EOF
+        list: [[1, 2], [3, 4]]
+      EOF
+    end
   end
 
   describe "maps" do

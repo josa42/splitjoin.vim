@@ -148,7 +148,7 @@ function! s:splitArrayLines(array)
   let lines = []
 
   let line = ''
-  let fences = { '"': '"', "'": "'" }
+  let fences = { '"': '"', "'": "'", '{': '}', '[': ']' }
 
   for chunk in split(a:array, ',')
     if line != ''
@@ -162,7 +162,7 @@ function! s:splitArrayLines(array)
       endif
 
     " Start of string
-    elseif chunk =~ '^\s*[' . join(keys(fences), '') . ']'
+    elseif chunk =~ '^\s*[' . join(map(keys(fences), 'escape(v:val, "[")'), '') . ']'
       let line  = sj#Ltrim(chunk)
 
       if chunk =~ fences[line[0]] . '\s*$'
