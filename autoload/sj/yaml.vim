@@ -3,10 +3,19 @@ function! sj#yaml#SplitArray()
   let line       = getline(line_no)
   let whitespace = s:GetIndentWhitespace(line_no)
 
+  " try |
   if line =~ ':\s*\[.*\]\s*\(#.*\)\?$'
-    let [key_part, array_part] = split(line, ':')
+    echom line
+
+    let parts      = split(line, ':')
+    let key_part   = parts[0]
+    let array_part = join(parts[1:], ':')
+
+    echom key_part
+    echom array_part
+
     let array_part             = sj#ExtractRx(array_part, '\[\(.*\)\]', '\1')
-    let expanded_array         = split(array_part, ',\s*')
+    let expanded_array         = s:splitArrayLines(array_part)
     let body                   = join(expanded_array, "\n- ")
 
     call sj#ReplaceMotion('V', key_part.":\n- ".body)
@@ -38,7 +47,7 @@ function! sj#yaml#JoinArray()
     let lines       = map(lines, 'sj#Trim(substitute(v:val, "^\\s*-", "", ""))')
     let lines       = filter(lines, 'v:val !~ "^\s*$"')
     let first_line  = substitute(line, '\s*#.*$', '', '')
-    let replacement = first_line.' ['.join(lines, ', ').']'
+    let replacement = first_line.' ['.s:joinArrayLines(lines).']'
 
     call sj#ReplaceLines(line_no, last_line_no, replacement)
     silent! normal! zO
@@ -46,6 +55,80 @@ function! sj#yaml#JoinArray()
 
     return 1
   endif
+endfunction
+
+function! sj#yaml#JoinArrayTEST(array)
+  return s:splitArrayLines(a:array)
+endfunction
+"
+function! s:splitArrayLines(array)
+  let lines = []
+
+  let line = ''
+  let fences = { '"': '"', "'":"'", '{': '}' }
+
+  for chunk in split(a:array, ',')
+
+    echo "chunk: " . chunk
+
+    if line != ''
+      " Inside a string
+      let line = line . ',' . chunk
+
+      echo 'start fence (1): "' . line[0] . '"'
+
+      if chunk =~ fences[line[0]] . '\s*$'
+        " End of string
+        call add(lines, s:convertToSingleLine(line))
+        let line  = ''
+      endif
+
+    " Start of string
+    elseif chunk =~ '^\s*[' . join(keys(fences), '') . ']'
+      " '^\s*["'."'".']'
+      let line  = sj#Ltrim(chunk)
+
+      echo 'start fence (2): "' . line[0] . '" => ' .  '^\s*[' . join(keys(fences), '') . ']'
+
+      if chunk =~ fences[line[0]] . '\s*$'
+        " Complete string
+        call add(lines, s:convertToSingleLine(line))
+        let line  = ''
+      endif
+
+    else
+      call add(lines, s:convertToSingleLine(chunk))
+    endif
+  endfor
+
+  if line != ''
+    cal add(lines, s:convertToSingleLine(line))
+  endif
+
+  return lines
+endfunction
+
+function! s:joinArrayLines(lines)
+  let lines = map(a:lines, 's:convertToCompactLine(v:val)')
+  return join(lines, ', ')
+endfunction
+
+function! s:convertToCompactLine(line)
+  let prop = substitute(a:line, '\v^([a-z]+):.*', '\1', 1)
+  if prop != a:line
+    return '{ ' . a:line . ' }'
+  endif
+
+  return a:line
+endfunction
+
+function! s:convertToSingleLine(line)
+
+  " let parser = sj#argparser#js#Construct(a:from, a:to, getline('.'))
+  " call parser.Process()
+  " return parser.args
+
+  return sj#Trim(a:line)
 endfunction
 
 function! sj#yaml#SplitMap()
